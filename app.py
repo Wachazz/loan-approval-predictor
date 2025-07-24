@@ -1,4 +1,14 @@
 import streamlit as st
+
+# MUST be first Streamlit command
+st.set_page_config(
+    page_title="Loan Approval Predictor", 
+    page_icon="💰", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Now import other libraries
 import pytesseract
 from PIL import Image
 import pdfplumber
@@ -9,18 +19,41 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 import re
 import plotly.express as px
+import time
 
-# Set page config
-st.set_page_config(
-    page_title="Loan Approval Predictor", 
-    page_icon="💰", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Custom CSS
+# Custom CSS for animations
 st.markdown("""
 <style>
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes slideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .animated {
+        animation: fadeIn 0.5s ease-out;
+    }
+    .slide-animation {
+        animation: slideIn 0.7s ease-out;
+    }
+    .pulse-animation:hover {
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    .floating {
+        animation: floating 3s ease-in-out infinite;
+    }
+    @keyframes floating {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
     .header {
         font-size: 36px !important;
         font-weight: bold !important;
@@ -28,20 +61,11 @@ st.markdown("""
         text-align: center;
         margin-bottom: 30px;
     }
-    .subheader {
-        font-size: 24px !important;
-        color: #4e4376 !important;
-        margin-top: 20px;
-    }
-    .stButton>button {
-        background-color: #4e4376 !important;
-        color: white !important;
+    .feature-box {
+        background-color: #f0f5ff;
         border-radius: 8px;
-        padding: 10px 24px;
-    }
-    .stFileUploader>div>div>div>button {
-        background-color: #2b5876 !important;
-        color: white !important;
+        padding: 15px;
+        margin: 10px 0;
     }
     .success-box {
         background-color: #d4edda;
@@ -57,12 +81,6 @@ st.markdown("""
         border-radius: 8px;
         margin: 20px 0;
     }
-    .feature-box {
-        background-color: #f0f5ff;
-        border-radius: 8px;
-        padding: 15px;
-        margin: 10px 0;
-    }
     .document-preview {
         text-align: center;
         border: 1px solid #ddd;
@@ -71,6 +89,13 @@ st.markdown("""
         margin-bottom: 20px;
     }
 </style>
+""", unsafe_allow_html=True)
+
+# Animated header
+st.markdown("""
+<div class="slide-animation">
+    <h1 class="header">Loan Approval Prediction System</h1>
+</div>
 """, unsafe_allow_html=True)
 
 # Load dataset
@@ -111,32 +136,33 @@ def train_models():
 
 model_approved, model_amount, scaler, numerical_cols = train_models()
 
-# App header
-st.markdown('<div class="header">Loan Approval Prediction System</div>', unsafe_allow_html=True)
-st.markdown("""
-Welcome to our AI-powered loan approval system. Upload your loan application document (PDF or image) 
-to get an instant prediction about your loan approval status and potential approved amount.
-""")
-
-# Sidebar with stats
+# Sidebar with animations
 with st.sidebar:
-    st.markdown("### 📊 Dataset Statistics")
+    st.markdown("### 📊 Dataset Statistics", help="Summary of loan application data")
     st.write(f"Total applications: {len(df):,}")
     st.write(f"Approval rate: {df['approved_status'].mean()*100:.1f}%")
     st.write(f"Average approved amount: ${df[df['approved_status']==1]['approved_amount'].mean():,.2f}")
     
     st.markdown("### 📈 Approval Factors")
-    st.write("✔️ Years in business")
-    st.write("✔️ Monthly salary")
-    st.write("✔️ Collateral value")
-    st.write("✖️ Existing loans")
-    st.write("✖️ Young applicant age")
+    factors = [
+        "✔️ Years in business",
+        "✔️ Monthly salary",
+        "✔️ Collateral value",
+        "✖️ Existing loans",
+        "✖️ Young applicant age"
+    ]
+    for factor in factors:
+        st.markdown(f'<div class="animated">{factor}</div>', unsafe_allow_html=True)
     
     st.markdown("### ℹ️ How It Works")
-    st.write("1. Upload your loan document")
-    st.write("2. System extracts key information")
-    st.write("3. AI models predict approval")
-    st.write("4. Get instant results")
+    steps = [
+        "1. Upload your loan document",
+        "2. System extracts key information",
+        "3. AI models predict approval",
+        "4. Get instant results"
+    ]
+    for step in steps:
+        st.markdown(f'<div class="slide-animation">{step}</div>', unsafe_allow_html=True)
 
 # File processing functions
 def extract_text_from_file(file):
@@ -194,7 +220,7 @@ def predict_loan_approval(info):
         st.error(f"Prediction error: {str(e)}")
         return None, None, None
 
-# Main app
+# Main app with tabs
 tab1, tab2 = st.tabs(["📄 Document Upload", "📊 Data Insights"])
 
 with tab1:
@@ -206,6 +232,8 @@ with tab1:
 
     if uploaded_file is not None:
         with st.spinner("Analyzing your document..."):
+            time.sleep(1)  # Simulate processing for animation
+            
             col1, col2 = st.columns(2)
             
             with col1:
@@ -224,24 +252,24 @@ with tab1:
                     }
                     
                     for feature, value in features.items():
-                        with st.container():
-                            st.markdown(f'<div class="feature-box"><strong>{feature}:</strong> {value}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="feature-box slide-animation"><strong>{feature}:</strong> {value}</div>', unsafe_allow_html=True)
                     
                     approved, amount, input_data = predict_loan_approval(info)
                     
                     if approved is not None:
                         if approved == 1:
                             st.markdown(f"""
-                            <div class="success-box">
+                            <div class="success-box slide-animation">
                                 <h3>🎉 Congratulations!</h3>
                                 <p>Your loan application has been <strong>approved</strong>!</p>
                                 <p><strong>Approved Amount:</strong> ${amount:,.2f}</p>
                                 <p>This represents {amount/input_data['loan_amount_requested']*100:.1f}% of your requested amount.</p>
                             </div>
                             """, unsafe_allow_html=True)
+                            st.balloons()  # Confetti animation
                         else:
                             st.markdown(f"""
-                            <div class="reject-box">
+                            <div class="reject-box slide-animation">
                                 <h3>⚠️ Application Not Approved</h3>
                                 <p>Based on our assessment, your application doesn't meet our current criteria.</p>
                                 <p>Common reasons include insufficient collateral, high existing debt, or limited business history.</p>
@@ -252,53 +280,61 @@ with tab1:
 
             with col2:
                 st.subheader("Document Preview")
+                doc_icon = "📄" if uploaded_file.type == 'application/pdf' else '🖼️'
                 st.markdown(f"""
-                <div class="document-preview">
-                    <span style="font-size:48px;">{'📄' if uploaded_file.type == 'application/pdf' else '🖼️'}</span>
+                <div class="document-preview floating">
+                    <span style="font-size:48px;">{doc_icon}</span>
                     <p>{'PDF Document' if uploaded_file.type == 'application/pdf' else 'Image Document'}</p>
                     <p><small>{uploaded_file.name}</small></p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                with st.expander("View extracted text"):
+                with st.expander("View extracted text", expanded=False):
                     st.text(text[:2000] + ("..." if len(text) > 2000 else ""))
 
 with tab2:
     st.subheader("Loan Approval Insights")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig = px.pie(df, names='approved_status', 
-                    title='Approval Rate Distribution',
-                    labels={'0': 'Rejected', '1': 'Approved'})
-        st.plotly_chart(fig, use_container_width=True)
+    with st.container():
+        col1, col2 = st.columns(2)
         
-    with col2:
-        approved_df = df[df['approved_status'] == 1]
-        fig = px.histogram(approved_df, x='approved_amount', 
-                         title='Approved Amount Distribution',
-                         labels={'approved_amount': 'Approved Amount ($)'})
-        st.plotly_chart(fig, use_container_width=True)
+        with col1:
+            time.sleep(0.2)
+            fig = px.pie(df, names='approved_status', 
+                        title='Approval Rate Distribution',
+                        labels={'0': 'Rejected', '1': 'Approved'})
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col2:
+            time.sleep(0.3)
+            approved_df = df[df['approved_status'] == 1]
+            fig = px.histogram(approved_df, x='approved_amount', 
+                             title='Approved Amount Distribution',
+                             labels={'approved_amount': 'Approved Amount ($)'})
+            st.plotly_chart(fig, use_container_width=True)
     
     st.subheader("Key Approval Factors")
     
-    fig = px.box(df, x='approved_status', y='monthly_salary',
-                labels={'approved_status': 'Approval Status', 'monthly_salary': 'Monthly Salary'},
-                title='Salary vs Approval Status')
-    st.plotly_chart(fig, use_container_width=True)
-    
-    fig = px.scatter(df, x='collateral_value', y='loan_amount_requested',
-                    color='approved_status',
-                    title='Collateral Value vs Requested Amount',
-                    labels={'collateral_value': 'Collateral Value ($)',
-                           'loan_amount_requested': 'Requested Amount ($)'})
-    st.plotly_chart(fig, use_container_width=True)
+    with st.container():
+        time.sleep(0.4)
+        fig = px.box(df, x='approved_status', y='monthly_salary',
+                    labels={'approved_status': 'Approval Status', 'monthly_salary': 'Monthly Salary'},
+                    title='Salary vs Approval Status')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        time.sleep(0.5)
+        fig = px.scatter(df, x='collateral_value', y='loan_amount_requested',
+                        color='approved_status',
+                        title='Collateral Value vs Requested Amount',
+                        labels={'collateral_value': 'Collateral Value ($)',
+                               'loan_amount_requested': 'Requested Amount ($)'})
+        st.plotly_chart(fig, use_container_width=True)
 
-# Footer
+# Animated footer
 st.markdown("---")
 st.markdown("""
-<div style="text-align: center; font-size: 14px; color: #666; margin-top: 50px;">
+<div class="animated" style="text-align: center; font-size: 14px; color: #666; margin-top: 50px;">
     <p>Developed by Tafadzwa</p>
 </div>
 """, unsafe_allow_html=True)
+
