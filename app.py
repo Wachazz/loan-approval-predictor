@@ -7,9 +7,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 import re
 import plotly.express as px
 import time
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # MUST be first Streamlit command
 st.set_page_config(
@@ -114,35 +117,62 @@ def load_data():
 
 df = load_data()
 
-# Train models
+# Train models and evaluate them
 @st.cache_resource
-def train_models():
+def train_and_evaluate_models():
     X = df[['years_in_business', 'monthly_revenue', 'existing_loans', 
             'loan_amount_requested', 'collateral_value']]
     y_approved = df['approved_status']
     y_amount = df['approved_amount']
 
+    # Split data for approval model
     X_train, X_test, y_train_approved, y_test_approved = train_test_split(
         X, y_approved, test_size=0.2, random_state=42, stratify=y_approved)
     
+    # Split data for amount model (only approved loans)
     approved_mask = y_approved == 1
     X_train_amount, X_test_amount, y_train_amount, y_test_amount = train_test_split(
         X[approved_mask], y_amount[approved_mask], test_size=0.2, random_state=42)
 
+    # Scale features
     scaler = StandardScaler()
-    numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
+    numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
     X_train[numerical_cols] = scaler.fit_transform(X_train[numerical_cols])
     X_test[numerical_cols] = scaler.transform(X_test[numerical_cols])
 
+    # Train approval model (Logistic Regression)
     model_approved = LogisticRegression(max_iter=1000)
     model_approved.fit(X_train, y_train_approved)
+    
+    # Evaluate approval model
+    y_pred_approved = model_approved.predict(X_test)
+    y_prob_approved = model_approved.predict_proba(X_test)[:, 1]
+    
+    logreg_metrics = {
+        'accuracy': accuracy_score(y_test_approved, y_pred_approved),
+        'precision': precision_score(y_test_approved, y_pred_approved),
+        'recall': recall_score(y_test_approved, y_pred_approved),
+        'f1': f1_score(y_test_approved, y_pred_approved),
+        'roc_auc': roc_auc_score(y_test_approved, y_prob_approved),
+        'confusion_matrix': confusion_matrix(y_test_approved, y_pred_approved)
+    }
 
+    # Train amount model (Linear Regression)
     model_amount = LinearRegression()
     model_amount.fit(X_train_amount[numerical_cols], y_train_amount)
+    
+    # Evaluate amount model
+    y_pred_amount = model_amount.predict(X_test_amount[numerical_cols])
+    amount_metrics = {
+        'r2_score': model_amount.score(X_test_amount[numerical_cols], y_test_amount),
+        'mae': np.mean(np.abs(y_pred_amount - y_test_amount)),
+        'mse': np.mean((y_pred_amount - y_test_amount)**2),
+        'rmse': np.sqrt(np.mean((y_pred_amount - y_test_amount)**2))
+    }
 
-    return model_approved, model_amount, scaler, numerical_cols
+    return model_approved, model_amount, scaler, numerical_cols, logreg_metrics, amount_metrics
 
-model_approved, model_amount, scaler, numerical_cols = train_models()
+model_approved, model_amount, scaler, numerical_cols, logreg_metrics, amount_metrics = train_and_evaluate_models()
 
 # Text extraction functions
 def extract_text_from_file(file):
@@ -372,6 +402,84 @@ with tab1:
 with tab2:
     st.subheader("📈 Business Loan Insights Dashboard")
     
+    # EDA Section
+    st.markdown("### 🔍 Exploratory Data Analysis")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### Data Distribution")
+        selected_col = st.selectbox("Select column to analyze", 
+                                  ['years_in_business', 'monthly_revenue', 
+                                   'existing_loans', 'loan_amount_requested', 
+                                   'collateral_value'])
+        fig = px.histogram(df, x=selected_col, nbins=30, 
+                          title=f'Distribution of {selected_col.replace("_", " ").title()}',
+                          color_discrete_sequence=['#3498db'])
+        st.plotly_chart(fig, use_container_width=True)
+        
+    with col2:
+        st.markdown("#### Outlier Analysis")
+        fig = px.box(df, y=selected_col, 
+                    title=f'Box Plot of {selected_col.replace("_", " ").title()}',
+                    color_discrete_sequence=['#e74c3c'])
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("#### Correlation Analysis")
+    # FIXED: Proper list concatenation for correlation matrix
+    corr_cols = numerical_cols.copy()
+    corr_cols.extend(['approved_status', 'approved_amount'])
+    corr_matrix = df[corr_cols].corr()
+    
+    fig = px.imshow(corr_matrix, 
+                   text_auto=True, 
+                   aspect="auto",
+                   title="Feature Correlation Matrix",
+                   color_continuous_scale='Blues')
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Skewness Analysis
+    st.markdown("#### Skewness Analysis")
+    skewness = df[numerical_cols].skew().reset_index()
+    skewness.columns = ['Feature', 'Skewness']
+    fig = px.bar(skewness, x='Feature', y='Skewness', 
+                title='Feature Skewness (0 = symmetric)',
+                color='Skewness',
+                color_continuous_scale='RdYlGn',
+                range_color=[-2, 2])
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Model Evaluation Section
+    st.markdown("### � Model Evaluation Metrics")
+    
+    st.markdown("#### 📊 Logistic Regression (Approval Prediction)")
+    cols = st.columns(5)
+    cols[0].metric("Accuracy", f"{logreg_metrics['accuracy']:.2%}")
+    cols[1].metric("Precision", f"{logreg_metrics['precision']:.2%}")
+    cols[2].metric("Recall", f"{logreg_metrics['recall']:.2%}")
+    cols[3].metric("F1 Score", f"{logreg_metrics['f1']:.2%}")
+    cols[4].metric("ROC AUC", f"{logreg_metrics['roc_auc']:.2%}")
+    
+    st.markdown("##### Confusion Matrix")
+    fig, ax = plt.subplots()
+    sns.heatmap(logreg_metrics['confusion_matrix'], annot=True, fmt='d',
+                cmap='Blues', ax=ax,
+                xticklabels=['Rejected', 'Approved'],
+                yticklabels=['Rejected', 'Approved'])
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Actual')
+    st.pyplot(fig)
+    
+    st.markdown("#### 📈 Linear Regression (Amount Prediction)")
+    cols = st.columns(4)
+    cols[0].metric("R² Score", f"{amount_metrics['r2_score']:.2%}")
+    cols[1].metric("MAE", f"${amount_metrics['mae']:,.2f}")
+    cols[2].metric("MSE", f"${amount_metrics['mse']:,.2f}")
+    cols[3].metric("RMSE", f"${amount_metrics['rmse']:,.2f}")
+    
+    # Original visualization code remains the same
+    st.markdown("---")
+    st.subheader("Original Visualizations")
+    
     col1, col2 = st.columns(2)
     with col1:
         fig = px.pie(df, names='approved_status', 
@@ -401,6 +509,6 @@ with tab2:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; font-size: 14px; color: #666; margin-top: 50px;">
-    <p>Developed with ❤️ by Mehluli Nokwara • © 2025 Small Business Loan Assessment System</p>
+    <p>Developed with ❤️ by Mehluli Nokwara • © 2023 Small Business Loan Assessment System</p>
 </div>
 """, unsafe_allow_html=True)
