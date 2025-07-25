@@ -334,7 +334,7 @@ with tab2:
 st.markdown("---")
 st.markdown("""
 <div class="animated" style="text-align: center; font-size: 14px; color: #666; margin-top: 50px;">
-    <p>Developed by Tafadzwa</p>
+    
 </div>
 """, unsafe_allow_html=True)
 
