@@ -509,6 +509,6 @@ with tab2:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; font-size: 14px; color: #666; margin-top: 50px;">
-    <p>Developed with ❤️ by Mehluli Nokwara • © 2023 Small Business Loan Assessment System</p>
+    <p>Developed with ❤️ by Mehluli Nokwara • © 2025 Small Business Loan Assessment System</p>
 </div>
 """, unsafe_allow_html=True)
